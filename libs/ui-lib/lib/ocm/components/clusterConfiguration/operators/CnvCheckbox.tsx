@@ -1,7 +1,6 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { FormGroup, HelperText, HelperTextItem, Tooltip } from '@patternfly/react-core';
 import { ExternalLinkAltIcon } from '@patternfly/react-icons/dist/js/icons/external-link-alt-icon';
-import { useFormikContext } from 'formik';
 import {
   ClusterOperatorProps,
   CNV_LINK,
@@ -10,11 +9,11 @@ import {
   PopoverIcon,
 } from '../../../../common';
 import CnvHostRequirements from './CnvHostRequirements';
-import { getCnvIncompatibleWithLvmReason } from '../../featureSupportLevels/featureStateUtils';
 import { OcmCheckboxField } from '../../ui/OcmFormFields';
-import { useNewFeatureSupportLevel } from '../../../../common/components/newFeatureSupportLevels';
 import NewFeatureSupportLevelBadge from '../../../../common/components/newFeatureSupportLevels/NewFeatureSupportLevelBadge';
 import { SupportLevel } from '@openshift-assisted/types/assisted-installer-service';
+import { useFormikContext } from 'formik';
+import { useNewFeatureSupportLevel } from '../../../../common/components/newFeatureSupportLevels';
 
 const CNV_FIELD_NAME = 'useContainerNativeVirtualization';
 
@@ -67,25 +66,22 @@ const CnvHelperText = () => {
 const CnvCheckbox = ({
   clusterId,
   isVersionEqualsOrMajorThan4_15,
+  disabledReason,
+  supportLevel,
 }: {
   clusterId: ClusterOperatorProps['clusterId'];
   isVersionEqualsOrMajorThan4_15: boolean;
+  disabledReason?: string;
+  supportLevel?: SupportLevel | undefined;
 }) => {
+  const featureSupportLevelData = useNewFeatureSupportLevel();
+  const { setFieldValue } = useFormikContext<OperatorsValues>();
   const fieldId = getFieldId(CNV_FIELD_NAME, 'input');
-
-  const featureSupportLevel = useNewFeatureSupportLevel();
-  const { values } = useFormikContext<OperatorsValues>();
-  const [disabledReason, setDisabledReason] = useState<string | undefined>();
-
-  React.useEffect(() => {
-    let reason = featureSupportLevel.getFeatureDisabledReason('CNV');
-    if (!reason) {
-      const lvmSupport = featureSupportLevel.getFeatureSupportLevel('LVM');
-      reason = getCnvIncompatibleWithLvmReason(values, lvmSupport);
-    }
-    setDisabledReason(reason);
-  }, [values, featureSupportLevel]);
-
+  const selectOperatorsNeeded = (checked: boolean) => {
+    if (featureSupportLevelData.isFeatureSupported('LSO')) setFieldValue('useLso', checked);
+    if (featureSupportLevelData.isFeatureSupported('MTV'))
+      setFieldValue('useMigrationToolkitforVirtualization', checked);
+  };
   return (
     <FormGroup isInline fieldId={fieldId}>
       <OcmCheckboxField
@@ -95,11 +91,12 @@ const CnvCheckbox = ({
             clusterId={clusterId}
             disabledReason={disabledReason}
             isVersionEqualsOrMajorThan4_15={isVersionEqualsOrMajorThan4_15}
-            supportLevel={featureSupportLevel.getFeatureSupportLevel('CNV')}
+            supportLevel={supportLevel}
           />
         }
         helperText={<CnvHelperText />}
         isDisabled={!!disabledReason}
+        onChange={selectOperatorsNeeded}
       />
     </FormGroup>
   );

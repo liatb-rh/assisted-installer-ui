@@ -83,6 +83,29 @@ export interface Boot {
   currentBootMode?: string;
   pxeInterface?: string;
   commandLine?: string;
+  secureBootState?: SecureBootState;
+  deviceType?: 'persistent' | 'ephemeral';
+}
+export interface Bundle {
+  /**
+   * Unique identifier of the bundle, for example `virtualization` or `openshift-ai-nvidia`.
+   */
+  id?: string;
+  /**
+   * Short human friendly description for the bundle, usually only a few words, for example `Virtualization` or
+   * `OpenShift AI (NVIDIA)`.
+   *
+   */
+  title?: string;
+  /**
+   * Longer human friendly description for the bundle, usually one or more sentences.
+   *
+   */
+  description?: string;
+  /**
+   * List of operators associated with the bundle.
+   */
+  operators?: string[];
 }
 export interface Cluster {
   /**
@@ -367,6 +390,11 @@ export interface Cluster {
    * Indication if organization soft timeouts is enabled for the cluster.
    */
   orgSoftTimeoutsEnabled?: boolean;
+  /**
+   * Specifies the required number of control plane nodes that should be part of the cluster.
+   */
+  controlPlaneCount?: number;
+  loadBalancer?: LoadBalancer;
 }
 export interface ClusterCreateParams {
   /**
@@ -374,7 +402,7 @@ export interface ClusterCreateParams {
    */
   name: string;
   /**
-   * Guaranteed availability of the installed cluster. 'Full' installs a Highly-Available cluster
+   * (DEPRECATED) Please use 'controlPlaneCount' instead. Guaranteed availability of the installed cluster. 'Full' installs a Highly-Available cluster
    * over multiple master nodes whereas 'None' installs a full cluster over one node.
    *
    */
@@ -449,6 +477,8 @@ export interface ClusterCreateParams {
   additionalNtpSource?: string;
   /**
    * List of OLM operators to be installed.
+   * For the full list of supported operators, check the endpoint `/v2/supported-operators`:
+   *
    */
   olmOperators?: OperatorCreateParams[];
   /**
@@ -492,6 +522,11 @@ export interface ClusterCreateParams {
    * A comma-separated list of tags that are associated to the cluster.
    */
   tags?: string;
+  /**
+   * Specifies the required number of control plane nodes that should be part of the cluster.
+   */
+  controlPlaneCount?: number;
+  loadBalancer?: LoadBalancer;
 }
 export interface ClusterDefaultConfig {
   clusterNetworkCidr?: string; // ^((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)[\/]([1-9]|[1-2][0-9]|3[0-2]?)$
@@ -611,6 +646,7 @@ export type ClusterValidationId =
   | 'lvm-requirements-satisfied'
   | 'mce-requirements-satisfied'
   | 'mtv-requirements-satisfied'
+  | 'osc-requirements-satisfied'
   | 'network-type-valid'
   | 'platform-requirements-satisfied'
   | 'node-feature-discovery-requirements-satisfied'
@@ -618,7 +654,9 @@ export type ClusterValidationId =
   | 'pipelines-requirements-satisfied'
   | 'servicemesh-requirements-satisfied'
   | 'serverless-requirements-satisfied'
-  | 'openshift-ai-requirements-satisfied';
+  | 'openshift-ai-requirements-satisfied'
+  | 'authorino-requirements-satisfied'
+  | 'nmstate-requirements-satisfied';
 export interface CompletionParams {
   isSuccess: boolean;
   errorInfo?: string;
@@ -643,6 +681,7 @@ export interface ConnectivityRemoteHost {
   hostId?: string; // uuid
   l2Connectivity?: L2Connectivity[];
   l3Connectivity?: L3Connectivity[];
+  mtuReport?: MtuReport[];
 }
 export interface ConnectivityReport {
   remoteHosts?: ConnectivityRemoteHost[];
@@ -984,6 +1023,7 @@ export type FeatureSupportLevelId =
   | 'CNV'
   | 'MCE'
   | 'MTV'
+  | 'OSC'
   | 'NUTANIX_INTEGRATION'
   | 'BAREMETAL_PLATFORM'
   | 'NONE_PLATFORM'
@@ -1005,7 +1045,11 @@ export type FeatureSupportLevelId =
   | 'PIPELINES'
   | 'SERVICEMESH'
   | 'SERVERLESS'
-  | 'OPENSHIFT_AI';
+  | 'OPENSHIFT_AI'
+  | 'NON_STANDARD_HA_CONTROL_PLANE'
+  | 'AUTHORINO'
+  | 'USER_MANAGED_LOAD_BALANCER'
+  | 'NMSTATE';
 /**
  * Cluster finalizing stage managed by controller
  */
@@ -1531,6 +1575,7 @@ export type HostValidationId =
   | 'lvm-requirements-satisfied'
   | 'mce-requirements-satisfied'
   | 'mtv-requirements-satisfied'
+  | 'osc-requirements-satisfied'
   | 'sufficient-installation-disk-speed'
   | 'cnv-requirements-satisfied'
   | 'sufficient-network-latency-requirement-for-role'
@@ -1555,7 +1600,10 @@ export type HostValidationId =
   | 'pipelines-requirements-satisfied'
   | 'servicemesh-requirements-satisfied'
   | 'serverless-requirements-satisfied'
-  | 'openshift-ai-requirements-satisfied';
+  | 'openshift-ai-requirements-satisfied'
+  | 'authorino-requirements-satisfied'
+  | 'mtu-valid'
+  | 'nmstate-requirements-satisfied';
 /**
  * Explicit ignition endpoint overrides the default ignition endpoint.
  */
@@ -1852,6 +1900,10 @@ export interface InstallCmdRequest {
    *
    */
   highAvailabilityMode?: 'Full' | 'None';
+  /**
+   * Specifies the required number of control plane nodes that should be part of the cluster.
+   */
+  controlPlaneCount?: number;
   proxy?: Proxy;
   /**
    * Check CVO status if needed
@@ -1893,6 +1945,10 @@ export interface InstallCmdRequest {
    * If true, notify number of reboots by assisted controller
    */
   notifyNumReboots?: boolean;
+  /**
+   * CoreOS container image to use if installing to the local device
+   */
+  coreosImage?: string;
 }
 export interface InstallerArgsParams {
   /**
@@ -2005,6 +2061,21 @@ export type ListManifests = Manifest[];
 export interface ListVersions {
   versions?: Versions;
   releaseTag?: string;
+}
+export interface LoadBalancer {
+  /**
+   * Indicates if the load balancer will be managed by the cluster or by the user. This is optional and The
+   * default is `cluster-managed`.
+   *
+   * `cluster-managed` means that the cluster will start the components that assign the API and ingress VIPs to the
+   * nodes of the cluster automatically.
+   *
+   * `user-managed` means that the user is responsible for configuring an external load balancer and assign the
+   * API and ingress VIPs to it. Note that this configuration needs to be completed before starting the
+   * installation of the cluster, as it is needed during the installation process.
+   *
+   */
+  type?: 'cluster-managed' | 'user-managed';
 }
 export interface LogsGatherCmdRequest {
   /**
@@ -2129,8 +2200,17 @@ export interface MonitoredOperator {
    * Time at which the operator was last updated.
    */
   statusUpdatedAt?: string; // date-time
+  /**
+   * List of identifier of the bundles associated with the operator. Can be empty.
+   */
+  bundles?: string[];
 }
 export type MonitoredOperatorsList = MonitoredOperator[];
+export interface MtuReport {
+  outgoingNic?: string;
+  remoteIpAddress?: string;
+  mtuSuccessful?: boolean;
+}
 export interface NextStepCmdRequest {
   /**
    * Infra env id
@@ -2431,6 +2511,7 @@ export interface Route {
    */
   metric?: number; // int32
 }
+export type SecureBootState = 'Unknown' | 'NotSupported' | 'Enabled' | 'Disabled';
 /**
  * IP address block for service IP blocks.
  */
@@ -2682,6 +2763,8 @@ export interface V2ClusterUpdateParams {
   additionalNtpSource?: string;
   /**
    * List of OLM operators to be installed.
+   * For the full list of supported operators, check the endpoint `/v2/supported-operators`:
+   *
    */
   olmOperators?: OperatorCreateParams[];
   /**
@@ -2720,6 +2803,11 @@ export interface V2ClusterUpdateParams {
    * A comma-separated list of tags that are associated to the cluster.
    */
   tags?: string;
+  /**
+   * Specifies the required number of control plane nodes that should be part of the cluster.
+   */
+  controlPlaneCount?: number;
+  loadBalancer?: LoadBalancer;
 }
 export interface V2Events {
   clusterId?: string;

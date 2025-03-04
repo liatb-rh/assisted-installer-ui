@@ -17,14 +17,13 @@ import { BMCFormProps } from '../Agent/types';
 import { AgentMachineK8sResource } from '../Hypershift/types';
 import { AddHostDropdownProps, ProvisioningConfigResult } from '../InfraEnv/types';
 import { AddHostModalProps, EditBMHModalProps, UploadActionModalProps } from '../modals/types';
+import { Host } from '@openshift-assisted/types/assisted-installer-service';
 
 export type EditAgentModalProps = {
-  agent: AgentK8sResource | undefined;
-  isOpen: boolean;
+  agent: AgentK8sResource;
   usedHostnames: string[] | undefined;
   onClose: () => void;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  onSave: (agent: AgentK8sResource, hostname: string) => Promise<any>;
+  onSave: (host: Host, hostname: string) => Promise<unknown>;
 };
 
 export type AgentTableActions = {
@@ -85,7 +84,6 @@ export type ScaleUpFormValues = Omit<
 
 export type ClusterDeploymentDetailsStepProps = ClusterDeploymentDetailsProps & {
   onSaveDetails: (values: ClusterDeploymentDetailsValues) => Promise<unknown>;
-  onClose: () => void;
   isPreviewOpen: boolean;
   isNutanix: boolean;
 };
@@ -98,7 +96,6 @@ export type ClusterDeploymentDetailsNetworkingProps = Pick<
   agentClusterInstall: AgentClusterInstallK8sResource;
   agents: AgentK8sResource[];
   onSaveNetworking: (values: ClusterDeploymentNetworkingValues) => Promise<string | void>;
-  onClose: () => void;
   fetchInfraEnv: (name: string, namespace: string) => Promise<InfraEnvK8sResource>;
   isPreviewOpen: boolean;
   isNutanix: boolean;
@@ -115,7 +112,6 @@ export type ClusterDeploymentHostSelectionStepProps = Omit<
   'onHostSelect' | 'onAutoSelectChange'
 > & {
   onSaveHostsSelection: (values: ClusterDeploymentHostsSelectionValues) => Promise<string | void>;
-  onClose: () => void;
 };
 
 export type ClusterDeploymentHostsDiscoveryStepProps = Omit<
@@ -123,7 +119,6 @@ export type ClusterDeploymentHostsDiscoveryStepProps = Omit<
   'usedHostnames'
 > & {
   onSaveHostsDiscovery: () => Promise<void>;
-  onClose: () => void;
 };
 
 export type ClusterDeploymentWizardProps = {
@@ -146,6 +141,7 @@ export type ClusterDeploymentWizardProps = {
   clusterDeployment: ClusterDeploymentK8sResource;
   agentClusterInstall: AgentClusterInstallK8sResource;
   agents: AgentK8sResource[];
+  bareMetalHosts: BareMetalHostK8sResource[];
   aiConfigMap?: ConfigMapK8sResource;
   infraEnv?: InfraEnvK8sResource;
   infraNMStates: NMStateK8sResource[];
@@ -155,7 +151,8 @@ export type ClusterDeploymentWizardProps = {
   setPreviewOpen: (open: boolean) => void;
   fetchManagedClusters: () => Promise<K8sResourceCommon[]>;
   fetchKlusterletAddonConfig: () => Promise<K8sResourceCommon[]>;
-  onSaveAgent: EditAgentModalProps['onSave'];
+  onChangeHostname: ClusterDeploymentHostsDiscoveryStepProps['onChangeHostname'];
+  onChangeBMHHostname: ClusterDeploymentHostsDiscoveryStepProps['onChangeBMHHostname'];
   onSaveBMH: EditBMHModalProps['onEdit'];
   onSaveISOParams?: AddHostModalProps['onSaveISOParams'];
   onSaveHostsDiscovery: ClusterDeploymentHostsDiscoveryStepProps['onSaveHostsDiscovery'];
@@ -225,7 +222,7 @@ export type ClusterDeploymentHostsDiscoveryProps = AddHostDropdownProps & {
   aiConfigMap?: ConfigMapK8sResource;
   infraNMStates: NMStateK8sResource[];
 
-  onSaveAgent: EditAgentModalProps['onSave'];
+  onChangeHostname: InfraEnvAgentTableProps['onChangeHostname'];
   onEditRole: ClusterDeploymentHostDiscoveryTableProps['onEditRole'];
   onSetInstallationDiskId: AgentTableActions['onSetInstallationDiskId'];
   onSaveBMH: EditBMHModalProps['onEdit'];

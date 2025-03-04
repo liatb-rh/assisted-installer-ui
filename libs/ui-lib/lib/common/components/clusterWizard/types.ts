@@ -34,6 +34,7 @@ export type ClusterDetailsValues = {
   platform: PlatformType;
   customOpenshiftSelect: OpenshiftVersionOptionType | null;
   userManagedNetworking: boolean;
+  controlPlaneCount: number;
 };
 
 export type HostsValidationsProps<S extends string, V extends string[]> = {
@@ -68,7 +69,9 @@ export type ValidationActionLinkProps<S extends string> = {
   wizardStepNames: { [key in S]: string };
 };
 
-export type ClusterOperatorProps = Pick<Cluster, 'openshiftVersion'> & { clusterId: Cluster['id'] };
+export type ClusterOperatorProps = Pick<Cluster, 'openshiftVersion'> & {
+  clusterId: Cluster['id'];
+} & { monitoredOperators?: Cluster['monitoredOperators'] };
 
 export type ItemDropdown = {
   label: string;

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { FormGroup, HelperText, HelperTextItem, Tooltip } from '@patternfly/react-core';
 import { ExternalLinkAltIcon } from '@patternfly/react-icons/dist/js/icons/external-link-alt-icon';
 import {
@@ -9,13 +9,20 @@ import {
   OperatorsValues,
 } from '../../../../common';
 import { OcmCheckboxField } from '../../ui/OcmFormFields';
-import { useNewFeatureSupportLevel } from '../../../../common/components/newFeatureSupportLevels';
+import NewFeatureSupportLevelBadge from '../../../../common/components/newFeatureSupportLevels/NewFeatureSupportLevelBadge';
+import { SupportLevel } from '@openshift-assisted/types/./assisted-installer-service';
 import { useFormikContext } from 'formik';
-import { getOdfIncompatibleWithLvmsReason } from '../../featureSupportLevels/featureStateUtils';
+import { useNewFeatureSupportLevel } from '../../../../common/components/newFeatureSupportLevels';
 
 const ODF_FIELD_NAME = 'useOpenShiftDataFoundation';
 
-const OdfLabel = ({ disabledReason }: { disabledReason?: string }) => (
+const OdfLabel = ({
+  disabledReason,
+  supportLevel,
+}: {
+  disabledReason?: string;
+  supportLevel?: SupportLevel;
+}) => (
   <>
     <Tooltip hidden={!disabledReason} content={disabledReason}>
       <span>Install OpenShift Data Foundation </span>
@@ -29,6 +36,7 @@ const OdfLabel = ({ disabledReason }: { disabledReason?: string }) => (
         </a>
       }
     />
+    <NewFeatureSupportLevelBadge featureId="ODF" supportLevel={supportLevel} />
   </>
 );
 
@@ -45,27 +53,27 @@ const OdfHelperText = () => {
   );
 };
 
-const OdfCheckbox = () => {
-  const featureSupportLevelContext = useNewFeatureSupportLevel();
-  const { values } = useFormikContext<OperatorsValues>();
+const OdfCheckbox = ({
+  disabledReason,
+  supportLevel,
+}: {
+  disabledReason?: string;
+  supportLevel?: SupportLevel | undefined;
+}) => {
+  const { setFieldValue } = useFormikContext<OperatorsValues>();
+  const featureSupportLevelData = useNewFeatureSupportLevel();
   const fieldId = getFieldId(ODF_FIELD_NAME, 'input');
-  const [disabledReason, setDisabledReason] = useState<string | undefined>();
-
-  React.useEffect(() => {
-    let disabledReason = featureSupportLevelContext.getFeatureDisabledReason('ODF');
-    if (!disabledReason) {
-      disabledReason = getOdfIncompatibleWithLvmsReason(values);
-    }
-    setDisabledReason(disabledReason);
-  }, [values, featureSupportLevelContext]);
-
+  const selectLsoOperator = (checked: boolean) => {
+    if (featureSupportLevelData.isFeatureSupported('LSO')) setFieldValue('useLso', checked);
+  };
   return (
     <FormGroup isInline fieldId={fieldId}>
       <OcmCheckboxField
         name={ODF_FIELD_NAME}
-        label={<OdfLabel disabledReason={disabledReason} />}
+        label={<OdfLabel disabledReason={disabledReason} supportLevel={supportLevel} />}
         isDisabled={!!disabledReason}
         helperText={<OdfHelperText />}
+        onChange={selectLsoOperator}
       />
     </FormGroup>
   );

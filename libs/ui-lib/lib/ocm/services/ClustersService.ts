@@ -14,8 +14,14 @@ import omit from 'lodash-es/omit.js';
 import ClustersAPI from '../../common/api/assisted-service/ClustersAPI';
 import HostsService from './HostsService';
 import InfraEnvsService from './InfraEnvsService';
-import { AI_ASSISTED_MIGRATION_TAG, AI_UI_TAG } from '../../common/config/constants';
+import {
+  AI_ASSISTED_MIGRATION_TAG,
+  AI_CISCO_INTERSIGHT_TAG,
+  AI_UI_TAG,
+} from '../../common/config/constants';
 import { isInOcm } from '../../common/api/axiosClient';
+import { yamlContentAssistedMigration1, yamlContentAssistedMigration2 } from '../config';
+import jsYaml from 'js-yaml';
 
 const ClustersService = {
   findHost(hosts: Cluster['hosts'] = [], hostId: Host['id']) {
@@ -94,7 +100,12 @@ const ClustersService = {
   ): V2ClusterUpdateParams {
     const tags = clusterTags?.split(',') || <string[]>[];
     if (tags.includes(AI_UI_TAG)) {
-      delete params.tags;
+      if (params.tags && params.tags.includes(AI_CISCO_INTERSIGHT_TAG)) {
+        tags?.push(AI_CISCO_INTERSIGHT_TAG);
+        params.tags = tags?.join(',');
+      } else {
+        delete params.tags;
+      }
     } else {
       tags?.push(AI_UI_TAG);
       params.tags = tags?.join(',');
@@ -155,6 +166,32 @@ const ClustersService = {
       clusterId,
       this.getUpdateManifestParams(existingManifest, updatedManifest),
     );
+  },
+
+  //TO-DO: Assisted-Migration. Provisional code. Needs to be removed when MTV integration be finished
+  async createClusterManifestsForAssistedMigration(clusterId: Cluster['id']) {
+    const manifests: CustomManifestValues[] = [];
+
+    const parsedYaml1 = jsYaml.dump(yamlContentAssistedMigration1);
+    manifests.push({
+      folder: 'openshift',
+      filename: '0gitops.yaml',
+      manifestYaml: parsedYaml1,
+      created: true,
+    });
+
+    const parsedYaml2 = jsYaml.dump(yamlContentAssistedMigration2);
+    manifests.push({
+      folder: 'openshift',
+      filename: '1rolebindings.yaml',
+      manifestYaml: parsedYaml2,
+      created: true,
+    });
+
+    const promises = manifests.map((manifest) => {
+      return ClustersAPI.createCustomManifest(clusterId, this.transformFormViewManifest(manifest));
+    });
+    return Promise.all(promises);
   },
 };
 
